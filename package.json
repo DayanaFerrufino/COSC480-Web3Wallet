@@ -1,0 +1,13 @@
+{
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^4.0.7",
+    "@types/node": "^22.19.17",
+    "ethers": "^6.16.0",
+    "hardhat": "^3.3.0",
+    "typescript": "~5.8.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  },
+  "type": "module"
+}
