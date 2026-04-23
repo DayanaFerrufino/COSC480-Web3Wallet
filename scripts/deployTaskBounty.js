@@ -9,7 +9,10 @@ async function main() {
   const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 
   const artifact = JSON.parse(
-    readFileSync("./artifacts/contracts/Billboard.sol/Billboard.json", "utf8"),
+    readFileSync(
+      "./artifacts/contracts/TaskBounty.sol/TaskBounty.json",
+      "utf8",
+    ),
   );
 
   const factory = new ethers.ContractFactory(
@@ -18,11 +21,11 @@ async function main() {
     wallet,
   );
 
-  const contract = await factory.deploy("Hello World!");
+  const contract = await factory.deploy();
   await contract.waitForDeployment();
 
   const address = await contract.getAddress();
-  console.log("Billboard deployed to:", address);
+  console.log("TaskBounty deployed to:", address);
 }
 
 main()
