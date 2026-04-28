@@ -1,5 +1,24 @@
 import { useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
+import {
+  Code2,
+  Paintbrush,
+  FileText,
+  Bug,
+  BarChart2,
+  Shield,
+  Rocket,
+  FlaskConical,
+  Smartphone,
+  Database,
+  Megaphone,
+  Globe,
+  Coins,
+  Wrench,
+  Video,
+  BookOpen,
+  Briefcase,
+} from "lucide-react";
 import "./App.css";
 
 const CONTRACT_ADDRESS = "0x8d8186d74F6ccB8533C4bBF9392De81E5554501C";
@@ -29,16 +48,132 @@ const STATUS_CLASSES = [
   "cancelled",
 ];
 const SEPOLIA_CHAIN_ID = "0xaa36a7";
+const KEYWORD_ICONS = [
+  {
+    keywords: [
+      "solidity",
+      "contract",
+      "smart",
+      "web3",
+      "dapp",
+      "blockchain",
+      "token",
+      "nft",
+    ],
+    Icon: Coins,
+  },
+  {
+    keywords: [
+      "code",
+      "dev",
+      "develop",
+      "frontend",
+      "backend",
+      "api",
+      "bug",
+      "script",
+      "build",
+      "react",
+      "node",
+    ],
+    Icon: Code2,
+  },
+  {
+    keywords: [
+      "design",
+      "ui",
+      "ux",
+      "figma",
+      "logo",
+      "brand",
+      "graphic",
+      "visual",
+      "css",
+      "style",
+    ],
+    Icon: Paintbrush,
+  },
+  {
+    keywords: [
+      "write",
+      "docs",
+      "content",
+      "blog",
+      "copy",
+      "article",
+      "documentation",
+      "text",
+    ],
+    Icon: FileText,
+  },
+  {
+    keywords: ["fix", "debug", "error", "issue", "patch", "broken"],
+    Icon: Bug,
+  },
+  {
+    keywords: [
+      "data",
+      "analytics",
+      "chart",
+      "dashboard",
+      "report",
+      "spreadsheet",
+      "metric",
+    ],
+    Icon: BarChart2,
+  },
+  {
+    keywords: [
+      "security",
+      "audit",
+      "hack",
+      "protect",
+      "pentest",
+      "vulnerability",
+    ],
+    Icon: Shield,
+  },
+  {
+    keywords: [
+      "deploy",
+      "launch",
+      "ship",
+      "release",
+      "infrastructure",
+      "devops",
+      "server",
+    ],
+    Icon: Rocket,
+  },
+  { keywords: ["test", "qa", "testing", "quality"], Icon: FlaskConical },
+  { keywords: ["mobile", "app", "ios", "android"], Icon: Smartphone },
+  {
+    keywords: ["database", "sql", "postgres", "mongo", "storage"],
+    Icon: Database,
+  },
+  {
+    keywords: ["market", "seo", "social", "campaign", "ads", "growth"],
+    Icon: Megaphone,
+  },
+  { keywords: ["website", "landing", "page", "web", "site"], Icon: Globe },
+  { keywords: ["video", "animation", "motion", "edit"], Icon: Video },
+  {
+    keywords: ["research", "learn", "course", "tutorial", "guide"],
+    Icon: BookOpen,
+  },
+  {
+    keywords: ["tool", "script", "automate", "workflow", "integration"],
+    Icon: Wrench,
+  },
+];
 
-const CATEGORY_ICONS = ["💻", "🎨", "📝", "🔧", "📊", "🎯", "🚀", "🔒"];
-
-function hashToIcon(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++)
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  return CATEGORY_ICONS[Math.abs(hash) % CATEGORY_ICONS.length];
+function getTaskIcon(title = "", description = "") {
+  const text = `${title} ${description}`.toLowerCase();
+  for (const { keywords, Icon } of KEYWORD_ICONS) {
+    if (keywords.some((kw) => text.includes(kw))) return Icon;
+  }
+  return Briefcase; // default
 }
-
 export default function App() {
   const [wallet, setWallet] = useState(null);
   const [wrongNetwork, setWrongNetwork] = useState(false);
@@ -48,6 +183,7 @@ export default function App() {
   const [tab, setTab] = useState("browse");
   const [modal, setModal] = useState(null);
   const [postModal, setPostModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
   const [txStatus, setTxStatus] = useState(null);
   const [txHash, setTxHash] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
@@ -55,7 +191,7 @@ export default function App() {
   const [postTitle, setPostTitle] = useState("");
   const [postDesc, setPostDesc] = useState("");
   const [postBounty, setPostBounty] = useState("");
-  const [proofInputs, setProofInputs] = useState({});
+  const [proofInput, setProofInput] = useState("");
 
   const getProvider = () => new ethers.BrowserProvider(window.ethereum);
   const getContract = async (withSigner = false) => {
@@ -90,6 +226,14 @@ export default function App() {
       console.error("Failed to fetch tasks:", e);
     }
   }, []);
+
+  // Keep selectedTask in sync after a tx updates tasks
+  useEffect(() => {
+    if (selectedTask) {
+      const updated = tasks.find((t) => t.id === selectedTask.id);
+      if (updated) setSelectedTask(updated);
+    }
+  }, [tasks]);
 
   const checkNetwork = async () => {
     const chainId = await window.ethereum.request({ method: "eth_chainId" });
@@ -180,8 +324,9 @@ export default function App() {
     getContract(true).then((c) =>
       doTx(() => c.claimTask(id), "Task claimed! Submit your work when done."),
     );
+
   const submitWork = (id) => {
-    const proof = proofInputs[id]?.trim();
+    const proof = proofInput.trim();
     if (!proof) return;
     getContract(true).then((c) =>
       doTx(
@@ -189,12 +334,14 @@ export default function App() {
         "Work submitted! Waiting for poster approval.",
       ),
     );
-    setProofInputs((p) => ({ ...p, [id]: "" }));
+    setProofInput("");
   };
+
   const approveWork = (id) =>
     getContract(true).then((c) =>
       doTx(() => c.approveWork(id), "Approved! Bounty sent to worker."),
     );
+
   const cancelTask = (id) =>
     getContract(true).then((c) =>
       doTx(() => c.cancelTask(id), "Task cancelled. Bounty refunded."),
@@ -211,6 +358,14 @@ export default function App() {
       ? new Date(ts * 1000).toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
+          year: "numeric",
+        })
+      : "";
+  const fmtTime = (ts) =>
+    ts
+      ? new Date(ts * 1000).toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
         })
       : "";
 
@@ -231,116 +386,249 @@ export default function App() {
     return true;
   });
 
+  // ── TASK CARD (teaser only) ──
   const renderCard = (task) => {
+    const TaskIcon = getTaskIcon(task.title, task.description);
+    return (
+      <div
+        className="task-card"
+        key={task.id}
+        onClick={() => setSelectedTask(task)}
+      >
+        <div className="card-top">
+          <div className="card-icon">
+            <TaskIcon size={20} strokeWidth={1.75} />
+          </div>
+          <span className={`status-pill ${STATUS_CLASSES[task.status]}`}>
+            {STATUS_LABELS[task.status]}
+          </span>
+        </div>
+        <h3 className="card-title">{task.title}</h3>
+        <p className="card-desc">{task.description}</p>
+        <div className="card-divider" />
+        <div className="card-footer-row">
+          <span className="bounty-badge">{fmtEth(task.bounty)} ETH</span>
+          <span className="card-date">{fmtDate(task.createdAt)}</span>
+        </div>
+        <div className="card-view-hint">View details →</div>
+      </div>
+    );
+  };
+
+  // ── TASK DETAIL MODAL ──
+  const renderDetailModal = () => {
+    if (!selectedTask) return null;
+    const task = selectedTask;
     const isPoster =
       wallet && task.poster.toLowerCase() === wallet.toLowerCase();
     const isWorker =
       wallet &&
       task.worker &&
       task.worker.toLowerCase() === wallet.toLowerCase();
-    const icon = hashToIcon(task.title);
+    const TaskIcon = getTaskIcon(task.title, task.description);
+    const canAct = wallet && !wrongNetwork;
 
     return (
-      <div className="task-card" key={task.id}>
-        <div className="card-top">
-          <div className="card-icon">{icon}</div>
-          <div className="card-top-right">
-            <span className={`status-pill ${STATUS_CLASSES[task.status]}`}>
-              {STATUS_LABELS[task.status]}
-            </span>
-          </div>
-        </div>
-
-        <h3 className="card-title">{task.title}</h3>
-        <p className="card-desc">{task.description}</p>
-
-        <div className="card-divider" />
-
-        <div className="card-meta">
-          <div className="card-meta-item">
-            <span className="meta-label">Bounty</span>
-            <span className="meta-value bounty-value">
-              {fmtEth(task.bounty)} ETH
-            </span>
-          </div>
-          <div className="card-meta-item">
-            <span className="meta-label">Posted by</span>
-            <span className="meta-value">{short(task.poster)}</span>
-          </div>
-          <div className="card-meta-item">
-            <span className="meta-label">Date</span>
-            <span className="meta-value">{fmtDate(task.createdAt)}</span>
-          </div>
-          {task.worker && task.worker !== ethers.ZeroAddress && (
-            <div className="card-meta-item">
-              <span className="meta-label">Worker</span>
-              <span className="meta-value">{short(task.worker)}</span>
+      <div className="overlay" onClick={() => setSelectedTask(null)}>
+        <div className="detail-dialog" onClick={(e) => e.stopPropagation()}>
+          {/* Header */}
+          <div className="detail-header">
+            <div className="detail-header-left">
+              <div className="detail-icon">
+                <TaskIcon size={22} strokeWidth={1.75} />
+              </div>
+              <div>
+                <div className="detail-header-top">
+                  <span
+                    className={`status-pill ${STATUS_CLASSES[task.status]}`}
+                  >
+                    {STATUS_LABELS[task.status]}
+                  </span>
+                  <span className="detail-task-id">#{task.id}</span>
+                </div>
+                <h2 className="detail-title">{task.title}</h2>
+              </div>
             </div>
-          )}
-        </div>
+            <button
+              className="dialog-close"
+              onClick={() => setSelectedTask(null)}
+            >
+              ✕
+            </button>
+          </div>
 
-        {task.proofUrl && (
-          <a
-            href={task.proofUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="proof-link"
-          >
-            <span>View submitted work</span>
-            <span className="proof-arrow">↗</span>
-          </a>
-        )}
+          {/* Body */}
+          <div className="detail-body">
+            {/* Description */}
+            <div className="detail-section">
+              <span className="detail-section-label">Description</span>
+              <p className="detail-description">{task.description}</p>
+            </div>
 
-        {wallet && !wrongNetwork && (
-          <div className="card-actions">
-            {task.status === 0 && !isPoster && (
-              <button
-                className="btn btn-primary"
-                onClick={() => claimTask(task.id)}
-                disabled={loading}
-              >
-                Claim Task →
-              </button>
-            )}
-            {task.status === 0 && isPoster && (
-              <button
-                className="btn btn-ghost"
-                onClick={() => cancelTask(task.id)}
-                disabled={loading}
-              >
-                Cancel & Refund
-              </button>
-            )}
-            {task.status === 1 && isWorker && (
-              <div className="submit-proof-row">
-                <input
-                  className="proof-input"
-                  placeholder="Proof URL (GitHub, Loom, Drive…)"
-                  value={proofInputs[task.id] || ""}
-                  onChange={(e) =>
-                    setProofInputs((p) => ({ ...p, [task.id]: e.target.value }))
-                  }
-                />
-                <button
-                  className="btn btn-blue"
-                  onClick={() => submitWork(task.id)}
-                  disabled={loading || !proofInputs[task.id]?.trim()}
+            {/* Meta grid */}
+            <div className="detail-meta-grid">
+              <div className="detail-meta-item">
+                <span className="meta-label">Bounty</span>
+                <span className="meta-value bounty-value detail-bounty">
+                  {fmtEth(task.bounty)} ETH
+                </span>
+              </div>
+              <div className="detail-meta-item">
+                <span className="meta-label">Posted by</span>
+                <a
+                  href={`https://sepolia.etherscan.io/address/${task.poster}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="meta-value meta-link"
                 >
-                  Submit
-                </button>
+                  {short(task.poster)}
+                  {isPoster && <span className="you-badge">you</span>}
+                </a>
+              </div>
+              <div className="detail-meta-item">
+                <span className="meta-label">Posted on</span>
+                <span className="meta-value">{fmtDate(task.createdAt)}</span>
+              </div>
+              <div className="detail-meta-item">
+                <span className="meta-label">Time</span>
+                <span className="meta-value">{fmtTime(task.createdAt)}</span>
+              </div>
+              {task.worker && task.worker !== ethers.ZeroAddress && (
+                <div className="detail-meta-item">
+                  <span className="meta-label">Worker</span>
+                  <a
+                    href={`https://sepolia.etherscan.io/address/${task.worker}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="meta-value meta-link"
+                  >
+                    {short(task.worker)}
+                    {isWorker && <span className="you-badge">you</span>}
+                  </a>
+                </div>
+              )}
+            </div>
+
+            {/* Proof link */}
+            {task.proofUrl && (
+              <div className="detail-section">
+                <span className="detail-section-label">Submitted Work</span>
+                <a
+                  href={task.proofUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="proof-link"
+                >
+                  <span>View submitted work</span>
+                  <span className="proof-arrow">↗</span>
+                </a>
               </div>
             )}
-            {task.status === 2 && isPoster && (
-              <button
-                className="btn btn-green"
-                onClick={() => approveWork(task.id)}
-                disabled={loading}
-              >
-                ✓ Approve & Pay {fmtEth(task.bounty)} ETH
-              </button>
+
+            {/* Actions */}
+            {canAct && (
+              <div className="detail-actions">
+                {/* Claim */}
+                {task.status === 0 && !isPoster && (
+                  <div className="claim-block">
+                    <div className="claim-info">
+                      <span className="claim-info-title">
+                        Ready to work on this?
+                      </span>
+                      <span className="claim-info-sub">
+                        Claiming commits you to deliver. The poster holds{" "}
+                        {fmtEth(task.bounty)} ETH in escrow until they approve
+                        your work.
+                      </span>
+                    </div>
+                    <button
+                      className="btn btn-primary btn-lg"
+                      onClick={() => claimTask(task.id)}
+                      disabled={loading}
+                    >
+                      Claim Task →
+                    </button>
+                  </div>
+                )}
+
+                {/* Cancel */}
+                {task.status === 0 && isPoster && (
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() => cancelTask(task.id)}
+                    disabled={loading}
+                  >
+                    Cancel & Refund
+                  </button>
+                )}
+
+                {/* Submit proof */}
+                {task.status === 1 && isWorker && (
+                  <div className="detail-section">
+                    <span className="detail-section-label">
+                      Submit your work
+                    </span>
+                    <div className="submit-proof-row">
+                      <input
+                        className="proof-input"
+                        placeholder="Proof URL (GitHub, Loom, Drive…)"
+                        value={proofInput}
+                        onChange={(e) => setProofInput(e.target.value)}
+                      />
+                      <button
+                        className="btn btn-blue"
+                        onClick={() => submitWork(task.id)}
+                        disabled={loading || !proofInput.trim()}
+                      >
+                        Submit
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Approve */}
+                {task.status === 2 && isPoster && (
+                  <div className="claim-block">
+                    <div className="claim-info">
+                      <span className="claim-info-title">
+                        Work has been submitted
+                      </span>
+                      <span className="claim-info-sub">
+                        Review the proof above. Approving will instantly send{" "}
+                        {fmtEth(task.bounty)} ETH to the worker.
+                      </span>
+                    </div>
+                    <button
+                      className="btn btn-green btn-lg"
+                      onClick={() => approveWork(task.id)}
+                      disabled={loading}
+                    >
+                      ✓ Approve & Pay {fmtEth(task.bounty)} ETH
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
-        )}
+
+          {/* Footer */}
+          <div className="detail-footer">
+            <button
+              className="btn btn-message"
+              onClick={() => alert("Messaging coming soon!")}
+            >
+              💬 Message Poster
+            </button>
+            <a
+              href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-ghost btn-sm"
+            >
+              View on Etherscan ↗
+            </a>
+          </div>
+        </div>
       </div>
     );
   };
@@ -409,9 +697,9 @@ export default function App() {
       {/* HERO */}
       <div className="hero">
         <div className="hero-inner">
-          <div className="hero-text center">
-            <h1 className="hero-title small">
-              Ready to earn or post a bounty?
+          <div className="hero-text">
+            <h1 className="hero-title">
+              Ready to earn or <span>post a bounty?</span>
             </h1>
             <p className="hero-sub">
               Claim tasks, submit work, and get paid in ETH.
@@ -440,7 +728,6 @@ export default function App() {
 
       {/* MAIN */}
       <main className="main">
-        {/* Toolbar */}
         <div className="toolbar">
           <div className="tab-group">
             <button
@@ -456,7 +743,6 @@ export default function App() {
               My Tasks
             </button>
           </div>
-
           <div className="toolbar-right">
             {tab === "browse" && (
               <select
@@ -481,7 +767,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Grid */}
         {displayTasks.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">📋</div>
@@ -523,7 +808,6 @@ export default function App() {
                 ✕
               </button>
             </div>
-
             <div className="dialog-body">
               <div className="field">
                 <label className="field-label">Task Title</label>
@@ -563,7 +847,6 @@ export default function App() {
                 </p>
               </div>
             </div>
-
             <div className="dialog-footer">
               <button
                 className="btn btn-ghost"
@@ -589,6 +872,9 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* TASK DETAIL MODAL */}
+      {renderDetailModal()}
 
       {/* RESULT MODAL */}
       {modal && (
