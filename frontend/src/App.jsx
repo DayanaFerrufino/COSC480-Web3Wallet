@@ -379,10 +379,12 @@ export default function App() {
     if (tab === "mine")
       return (
         wallet &&
+        t.status !== 4 &&
         (t.poster.toLowerCase() === wallet.toLowerCase() ||
           (t.worker && t.worker.toLowerCase() === wallet.toLowerCase()))
       );
     if (filterStatus !== "all") return t.status === Number(filterStatus);
+    if (t.status === 4) return false;
     return true;
   });
 
