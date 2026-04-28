@@ -1,0 +1,66 @@
+/* ── HERO ── */
+.hero {
+  background: var(--dark);
+  padding: 0.75rem 1.5rem 2.5rem;
+}
+.hero-inner {
+  max-width: 1140px;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+.hero-title {
+  font-family: "Syne", sans-serif;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #fdf6ee;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  margin-bottom: 0.65rem;
+}
+.hero-title span {
+  color: var(--accent);
+}
+.hero-sub {
+  color: #a89484;
+  font-size: 0.8rem;
+  max-width: 420px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+/* ── STATS ── */
+.stats-row {
+  display: flex;
+  gap: 0.5rem;
+  max-width: 480px;
+  flex-shrink: 0;
+}
+.stat-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 0.4rem 0.65rem;
+  min-width: 70px;
+  text-align: center;
+}
+.stat-num {
+  display: block;
+  font-family: "Syne", sans-serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #fdf6ee;
+  letter-spacing: -0.03em;
+}
+.stat-label {
+  display: block;
+  font-size: 0.62rem;
+  color: #6b5a50;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 0.2rem;
+  font-weight: 600;
+}

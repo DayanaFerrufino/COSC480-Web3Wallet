@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ethers } from "ethers";
 import {
   Code2,
@@ -18,6 +18,10 @@ import {
   Video,
   BookOpen,
   Briefcase,
+  ChevronDown,
+  LayoutDashboard,
+  MessageSquare,
+  User,
 } from "lucide-react";
 import "./App.css";
 
@@ -48,6 +52,7 @@ const STATUS_CLASSES = [
   "cancelled",
 ];
 const SEPOLIA_CHAIN_ID = "0xaa36a7";
+
 const KEYWORD_ICONS = [
   {
     keywords: [
@@ -70,7 +75,6 @@ const KEYWORD_ICONS = [
       "frontend",
       "backend",
       "api",
-      "bug",
       "script",
       "build",
       "react",
@@ -107,7 +111,7 @@ const KEYWORD_ICONS = [
     Icon: FileText,
   },
   {
-    keywords: ["fix", "debug", "error", "issue", "patch", "broken"],
+    keywords: ["fix", "debug", "error", "issue", "patch", "broken", "bug"],
     Icon: Bug,
   },
   {
@@ -161,10 +165,7 @@ const KEYWORD_ICONS = [
     keywords: ["research", "learn", "course", "tutorial", "guide"],
     Icon: BookOpen,
   },
-  {
-    keywords: ["tool", "script", "automate", "workflow", "integration"],
-    Icon: Wrench,
-  },
+  { keywords: ["tool", "automate", "workflow", "integration"], Icon: Wrench },
 ];
 
 function getTaskIcon(title = "", description = "") {
@@ -172,26 +173,28 @@ function getTaskIcon(title = "", description = "") {
   for (const { keywords, Icon } of KEYWORD_ICONS) {
     if (keywords.some((kw) => text.includes(kw))) return Icon;
   }
-  return Briefcase; // default
+  return Briefcase;
 }
+
 export default function App() {
   const [wallet, setWallet] = useState(null);
   const [wrongNetwork, setWrongNetwork] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState("browse");
+  const [view, setView] = useState("browse");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [modal, setModal] = useState(null);
   const [postModal, setPostModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [txStatus, setTxStatus] = useState(null);
   const [txHash, setTxHash] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
-
   const [postTitle, setPostTitle] = useState("");
   const [postDesc, setPostDesc] = useState("");
   const [postBounty, setPostBounty] = useState("");
   const [proofInput, setProofInput] = useState("");
+  const dropdownRef = useRef(null);
 
   const getProvider = () => new ethers.BrowserProvider(window.ethereum);
   const getContract = async (withSigner = false) => {
@@ -227,13 +230,22 @@ export default function App() {
     }
   }, []);
 
-  // Keep selectedTask in sync after a tx updates tasks
   useEffect(() => {
     if (selectedTask) {
       const updated = tasks.find((t) => t.id === selectedTask.id);
       if (updated) setSelectedTask(updated);
     }
   }, [tasks]);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const checkNetwork = async () => {
     const chainId = await window.ethereum.request({ method: "eth_chainId" });
@@ -324,7 +336,6 @@ export default function App() {
     getContract(true).then((c) =>
       doTx(() => c.claimTask(id), "Task claimed! Submit your work when done."),
     );
-
   const submitWork = (id) => {
     const proof = proofInput.trim();
     if (!proof) return;
@@ -336,12 +347,10 @@ export default function App() {
     );
     setProofInput("");
   };
-
   const approveWork = (id) =>
     getContract(true).then((c) =>
       doTx(() => c.approveWork(id), "Approved! Bounty sent to worker."),
     );
-
   const cancelTask = (id) =>
     getContract(true).then((c) =>
       doTx(() => c.cancelTask(id), "Task cancelled. Bounty refunded."),
@@ -376,19 +385,12 @@ export default function App() {
   const completedCount = tasks.filter((t) => t.status === 3).length;
 
   const displayTasks = tasks.filter((t) => {
-    if (tab === "mine")
-      return (
-        wallet &&
-        t.status !== 4 &&
-        (t.poster.toLowerCase() === wallet.toLowerCase() ||
-          (t.worker && t.worker.toLowerCase() === wallet.toLowerCase()))
-      );
+    if (t.status === 4) return filterStatus === "4";
     if (filterStatus !== "all") return t.status === Number(filterStatus);
-    if (t.status === 4) return false;
     return true;
   });
 
-  // ── TASK CARD (teaser only) ──
+  // ── TASK CARD ──
   const renderCard = (task) => {
     const TaskIcon = getTaskIcon(task.title, task.description);
     return (
@@ -417,6 +419,67 @@ export default function App() {
     );
   };
 
+  // ── MY TASKS DASHBOARD ──
+  const renderMyTasks = () => {
+    if (!wallet)
+      return (
+        <div className="empty">
+          <div className="empty-icon">🔒</div>
+          <p className="empty-title">Connect your wallet</p>
+          <p className="empty-sub">
+            Connect to see your posted and claimed tasks.
+          </p>
+          <button className="btn btn-primary" onClick={connectWallet}>
+            Connect Wallet
+          </button>
+        </div>
+      );
+
+    const posted = tasks.filter(
+      (t) => t.poster.toLowerCase() === wallet.toLowerCase(),
+    );
+    const working = tasks.filter(
+      (t) =>
+        t.worker &&
+        t.worker !== ethers.ZeroAddress &&
+        t.worker.toLowerCase() === wallet.toLowerCase(),
+    );
+
+    const renderSection = (title, subtitle, items, emptyMsg) => (
+      <div className="my-tasks-section">
+        <div className="my-tasks-section-header">
+          <div>
+            <h2 className="my-tasks-section-title">{title}</h2>
+            <p className="my-tasks-section-sub">{subtitle}</p>
+          </div>
+          <span className="my-tasks-count">{items.length}</span>
+        </div>
+        {items.length === 0 ? (
+          <p className="my-tasks-empty">{emptyMsg}</p>
+        ) : (
+          <div className="task-grid">{items.map(renderCard)}</div>
+        )}
+      </div>
+    );
+
+    return (
+      <div className="my-tasks-dashboard">
+        {renderSection(
+          "Tasks I Posted",
+          "Bounties you created and locked ETH into",
+          posted,
+          "You haven't posted any tasks yet.",
+        )}
+        {renderSection(
+          "Tasks I'm Working On",
+          "Tasks you've claimed and are delivering",
+          working,
+          "You haven't claimed any tasks yet.",
+        )}
+      </div>
+    );
+  };
+
   // ── TASK DETAIL MODAL ──
   const renderDetailModal = () => {
     if (!selectedTask) return null;
@@ -433,7 +496,6 @@ export default function App() {
     return (
       <div className="overlay" onClick={() => setSelectedTask(null)}>
         <div className="detail-dialog" onClick={(e) => e.stopPropagation()}>
-          {/* Header */}
           <div className="detail-header">
             <div className="detail-header-left">
               <div className="detail-icon">
@@ -459,15 +521,12 @@ export default function App() {
             </button>
           </div>
 
-          {/* Body */}
           <div className="detail-body">
-            {/* Description */}
             <div className="detail-section">
               <span className="detail-section-label">Description</span>
               <p className="detail-description">{task.description}</p>
             </div>
 
-            {/* Meta grid */}
             <div className="detail-meta-grid">
               <div className="detail-meta-item">
                 <span className="meta-label">Bounty</span>
@@ -511,7 +570,6 @@ export default function App() {
               )}
             </div>
 
-            {/* Proof link */}
             {task.proofUrl && (
               <div className="detail-section">
                 <span className="detail-section-label">Submitted Work</span>
@@ -527,10 +585,8 @@ export default function App() {
               </div>
             )}
 
-            {/* Actions */}
             {canAct && (
               <div className="detail-actions">
-                {/* Claim */}
                 {task.status === 0 && !isPoster && (
                   <div className="claim-block">
                     <div className="claim-info">
@@ -552,8 +608,6 @@ export default function App() {
                     </button>
                   </div>
                 )}
-
-                {/* Cancel */}
                 {task.status === 0 && isPoster && (
                   <button
                     className="btn btn-ghost"
@@ -563,8 +617,6 @@ export default function App() {
                     Cancel & Refund
                   </button>
                 )}
-
-                {/* Submit proof */}
                 {task.status === 1 && isWorker && (
                   <div className="detail-section">
                     <span className="detail-section-label">
@@ -587,8 +639,6 @@ export default function App() {
                     </div>
                   </div>
                 )}
-
-                {/* Approve */}
                 {task.status === 2 && isPoster && (
                   <div className="claim-block">
                     <div className="claim-info">
@@ -613,7 +663,6 @@ export default function App() {
             )}
           </div>
 
-          {/* Footer */}
           <div className="detail-footer">
             <button
               className="btn btn-message"
@@ -637,7 +686,6 @@ export default function App() {
 
   return (
     <div className="page">
-      {/* NAV */}
       <nav className="nav">
         <div className="nav-inner">
           <div className="nav-brand">
@@ -672,9 +720,43 @@ export default function App() {
               </a>
             )}
             {wallet ? (
-              <div className="wallet-chip">
-                <span className="wallet-dot" />
-                {short(wallet)}
+              <div className="nav-dropdown-wrap" ref={dropdownRef}>
+                <button
+                  className="wallet-chip"
+                  onClick={() => setDropdownOpen((o) => !o)}
+                >
+                  <span className="wallet-dot" />
+                  {short(wallet)}
+                  <ChevronDown
+                    size={13}
+                    strokeWidth={2.5}
+                    className={`chevron ${dropdownOpen ? "open" : ""}`}
+                  />
+                </button>
+                {dropdownOpen && (
+                  <div className="nav-dropdown">
+                    <button
+                      className="nav-dropdown-item"
+                      onClick={() => {
+                        setView("myTasks");
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      <LayoutDashboard size={15} strokeWidth={1.75} />
+                      My Tasks
+                    </button>
+                    <button className="nav-dropdown-item" disabled>
+                      <MessageSquare size={15} strokeWidth={1.75} />
+                      Messages
+                      <span className="soon-badge">Soon</span>
+                    </button>
+                    <button className="nav-dropdown-item" disabled>
+                      <User size={15} strokeWidth={1.75} />
+                      Profile
+                      <span className="soon-badge">Soon</span>
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <button
@@ -696,7 +778,6 @@ export default function App() {
         </div>
       )}
 
-      {/* HERO */}
       <div className="hero">
         <div className="hero-inner">
           <div className="hero-text">
@@ -728,71 +809,72 @@ export default function App() {
         </div>
       </div>
 
-      {/* MAIN */}
       <main className="main">
-        <div className="toolbar">
-          <div className="tab-group">
-            <button
-              className={`tab-btn ${tab === "browse" ? "active" : ""}`}
-              onClick={() => setTab("browse")}
-            >
-              All Tasks
-            </button>
-            <button
-              className={`tab-btn ${tab === "mine" ? "active" : ""}`}
-              onClick={() => setTab("mine")}
-            >
-              My Tasks
-            </button>
-          </div>
-          <div className="toolbar-right">
-            {tab === "browse" && (
-              <select
-                className="filter-select"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
+        {view === "myTasks" ? (
+          <>
+            <div className="my-tasks-header">
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => setView("browse")}
               >
-                <option value="all">All statuses</option>
-                <option value="0">Open</option>
-                <option value="1">Claimed</option>
-                <option value="2">Submitted</option>
-                <option value="3">Completed</option>
-                <option value="4">Cancelled</option>
-              </select>
-            )}
-            <button
-              className="btn btn-primary"
-              onClick={() => (wallet ? setPostModal(true) : connectWallet())}
-            >
-              + Post a Task
-            </button>
-          </div>
-        </div>
-
-        {displayTasks.length === 0 ? (
-          <div className="empty">
-            <div className="empty-icon">📋</div>
-            <p className="empty-title">
-              {tab === "mine" ? "No tasks yet" : "No tasks found"}
-            </p>
-            <p className="empty-sub">
-              {tab === "mine"
-                ? "Post a task or claim one to get started."
-                : "Be the first to post a bounty task."}
-            </p>
-            <button
-              className="btn btn-primary"
-              onClick={() => (wallet ? setPostModal(true) : connectWallet())}
-            >
-              Post a Task →
-            </button>
-          </div>
+                ← Back
+              </button>
+              <div>
+                <h1 className="my-tasks-title">My Tasks</h1>
+                <p className="my-tasks-sub">
+                  Your posted bounties and claimed work
+                </p>
+              </div>
+            </div>
+            {renderMyTasks()}
+          </>
         ) : (
-          <div className="task-grid">{displayTasks.map(renderCard)}</div>
+          <>
+            <div className="toolbar">
+              <div className="toolbar-right" style={{ marginLeft: "auto" }}>
+                <select
+                  className="filter-select"
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                >
+                  <option value="all">All statuses</option>
+                  <option value="0">Open</option>
+                  <option value="1">Claimed</option>
+                  <option value="2">Submitted</option>
+                  <option value="3">Completed</option>
+                  <option value="4">Cancelled</option>
+                </select>
+                <button
+                  className="btn btn-primary"
+                  onClick={() =>
+                    wallet ? setPostModal(true) : connectWallet()
+                  }
+                >
+                  + Post a Task
+                </button>
+              </div>
+            </div>
+            {displayTasks.length === 0 ? (
+              <div className="empty">
+                <div className="empty-icon">📋</div>
+                <p className="empty-title">No tasks found</p>
+                <p className="empty-sub">Be the first to post a bounty task.</p>
+                <button
+                  className="btn btn-primary"
+                  onClick={() =>
+                    wallet ? setPostModal(true) : connectWallet()
+                  }
+                >
+                  Post a Task →
+                </button>
+              </div>
+            ) : (
+              <div className="task-grid">{displayTasks.map(renderCard)}</div>
+            )}
+          </>
         )}
       </main>
 
-      {/* POST MODAL */}
       {postModal && (
         <div className="overlay" onClick={() => setPostModal(false)}>
           <div className="dialog" onClick={(e) => e.stopPropagation()}>
@@ -875,10 +957,8 @@ export default function App() {
         </div>
       )}
 
-      {/* TASK DETAIL MODAL */}
       {renderDetailModal()}
 
-      {/* RESULT MODAL */}
       {modal && (
         <div className="overlay" onClick={() => setModal(null)}>
           <div

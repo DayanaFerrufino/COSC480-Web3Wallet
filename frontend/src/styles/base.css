@@ -1,0 +1,52 @@
+@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap");
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #fdf6ee;
+  --surface: #f5ede0;
+  --card: #ffffff;
+  --card-hover: #fffaf5;
+  --dark: #2a1f14;
+  --dark-2: #3d2e1e;
+  --border: #f0dcc8;
+  --border-2: #e8c9ad;
+  --accent: #e8896a;
+  --accent-2: #d97555;
+  --accent-soft: #f5c9b5;
+  --accent-pale: #fdeedd;
+  --text: #2a1f14;
+  --text-2: #785133;
+  --text-3: #b69a7c;
+  --shadow-sm:
+    0 1px 3px rgba(120, 81, 51, 0.08), 0 4px 12px rgba(120, 81, 51, 0.06);
+  --shadow-md:
+    0 4px 20px rgba(120, 81, 51, 0.1), 0 1px 3px rgba(120, 81, 51, 0.06);
+  --green: #2d8a52;
+  --green-dim: #e6f5ed;
+  --blue: #2563eb;
+  --blue-dim: #eff6ff;
+  --gold: #b45309;
+  --gold-dim: #fffbeb;
+  --red: #dc2626;
+  --red-dim: #fef2f2;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Quicksand", sans-serif;
+  font-weight: 500;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
