@@ -3,6 +3,7 @@
   .hero-inner {
     flex-direction: column;
     align-items: flex-start;
+  }
   .stats-row {
     flex-wrap: wrap;
   }

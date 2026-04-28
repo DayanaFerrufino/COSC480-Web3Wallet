@@ -194,6 +194,7 @@ export default function App() {
   const [postDesc, setPostDesc] = useState("");
   const [postBounty, setPostBounty] = useState("");
   const [proofInput, setProofInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const dropdownRef = useRef(null);
 
   const getProvider = () => new ethers.BrowserProvider(window.ethereum);
@@ -387,6 +388,13 @@ export default function App() {
   const displayTasks = tasks.filter((t) => {
     if (t.status === 4) return filterStatus === "4";
     if (filterStatus !== "all") return t.status === Number(filterStatus);
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return (
+        t.title.toLowerCase().includes(q) ||
+        t.description.toLowerCase().includes(q)
+      );
+    }
     return true;
   });
 
@@ -831,7 +839,13 @@ export default function App() {
         ) : (
           <>
             <div className="toolbar">
-              <div className="toolbar-right" style={{ marginLeft: "auto" }}>
+              <input
+                className="search-input"
+                placeholder="Search tasks…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <div className="toolbar-right">
                 <select
                   className="filter-select"
                   value={filterStatus}
