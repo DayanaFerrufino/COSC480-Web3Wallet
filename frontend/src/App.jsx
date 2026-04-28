@@ -53,8 +53,12 @@ const STATUS_CLASSES = [
 ];
 const SEPOLIA_CHAIN_ID = "0xaa36a7";
 
-const KEYWORD_ICONS = [
+// ── CATEGORIES ──
+const CATEGORIES = [
   {
+    id: "blockchain",
+    label: "Blockchain & Web3",
+    Icon: Coins,
     keywords: [
       "solidity",
       "contract",
@@ -65,9 +69,11 @@ const KEYWORD_ICONS = [
       "token",
       "nft",
     ],
-    Icon: Coins,
   },
   {
+    id: "dev",
+    label: "Development",
+    Icon: Code2,
     keywords: [
       "code",
       "dev",
@@ -80,9 +86,11 @@ const KEYWORD_ICONS = [
       "react",
       "node",
     ],
-    Icon: Code2,
   },
   {
+    id: "design",
+    label: "Design",
+    Icon: Paintbrush,
     keywords: [
       "design",
       "ui",
@@ -95,9 +103,11 @@ const KEYWORD_ICONS = [
       "css",
       "style",
     ],
-    Icon: Paintbrush,
   },
   {
+    id: "writing",
+    label: "Writing & Docs",
+    Icon: FileText,
     keywords: [
       "write",
       "docs",
@@ -108,13 +118,17 @@ const KEYWORD_ICONS = [
       "documentation",
       "text",
     ],
-    Icon: FileText,
   },
   {
-    keywords: ["fix", "debug", "error", "issue", "patch", "broken", "bug"],
+    id: "bugfix",
+    label: "Bug Fix",
     Icon: Bug,
+    keywords: ["fix", "debug", "error", "issue", "patch", "broken", "bug"],
   },
   {
+    id: "data",
+    label: "Data & Analytics",
+    Icon: BarChart2,
     keywords: [
       "data",
       "analytics",
@@ -124,9 +138,11 @@ const KEYWORD_ICONS = [
       "spreadsheet",
       "metric",
     ],
-    Icon: BarChart2,
   },
   {
+    id: "security",
+    label: "Security",
+    Icon: Shield,
     keywords: [
       "security",
       "audit",
@@ -135,9 +151,11 @@ const KEYWORD_ICONS = [
       "pentest",
       "vulnerability",
     ],
-    Icon: Shield,
   },
   {
+    id: "devops",
+    label: "DevOps",
+    Icon: Rocket,
     keywords: [
       "deploy",
       "launch",
@@ -147,33 +165,40 @@ const KEYWORD_ICONS = [
       "devops",
       "server",
     ],
-    Icon: Rocket,
-  },
-  { keywords: ["test", "qa", "testing", "quality"], Icon: FlaskConical },
-  { keywords: ["mobile", "app", "ios", "android"], Icon: Smartphone },
-  {
-    keywords: ["database", "sql", "postgres", "mongo", "storage"],
-    Icon: Database,
   },
   {
-    keywords: ["market", "seo", "social", "campaign", "ads", "growth"],
+    id: "testing",
+    label: "Testing",
+    Icon: FlaskConical,
+    keywords: ["test", "qa", "testing", "quality"],
+  },
+  {
+    id: "marketing",
+    label: "Marketing",
     Icon: Megaphone,
+    keywords: ["market", "seo", "social", "campaign", "ads", "growth"],
   },
-  { keywords: ["website", "landing", "page", "web", "site"], Icon: Globe },
-  { keywords: ["video", "animation", "motion", "edit"], Icon: Video },
   {
-    keywords: ["research", "learn", "course", "tutorial", "guide"],
-    Icon: BookOpen,
+    id: "mobile",
+    label: "Mobile",
+    Icon: Smartphone,
+    keywords: ["mobile", "app", "ios", "android"],
   },
-  { keywords: ["tool", "automate", "workflow", "integration"], Icon: Wrench },
+  { id: "other", label: "Other", Icon: Briefcase, keywords: [] },
 ];
 
-function getTaskIcon(title = "", description = "") {
+function getCategory(title = "", description = "") {
   const text = `${title} ${description}`.toLowerCase();
-  for (const { keywords, Icon } of KEYWORD_ICONS) {
-    if (keywords.some((kw) => text.includes(kw))) return Icon;
+  for (const cat of CATEGORIES) {
+    if (cat.id === "other") continue;
+    if (cat.keywords.some((kw) => text.includes(kw))) return cat.id;
   }
-  return Briefcase;
+  return "other";
+}
+
+function getTaskIcon(title = "", description = "") {
+  const catId = getCategory(title, description);
+  return CATEGORIES.find((c) => c.id === catId)?.Icon ?? Briefcase;
 }
 
 export default function App() {
@@ -189,12 +214,16 @@ export default function App() {
   const [selectedTask, setSelectedTask] = useState(null);
   const [txStatus, setTxStatus] = useState(null);
   const [txHash, setTxHash] = useState(null);
-  const [filterStatus, setFilterStatus] = useState("all");
   const [postTitle, setPostTitle] = useState("");
   const [postDesc, setPostDesc] = useState("");
   const [postBounty, setPostBounty] = useState("");
   const [proofInput, setProofInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  // Sidebar filters
+  const [minBounty, setMinBounty] = useState("");
+  const [maxBounty, setMaxBounty] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [showAll, setShowAll] = useState(false);
   const dropdownRef = useRef(null);
 
   const getProvider = () => new ethers.BrowserProvider(window.ethereum);
@@ -385,18 +414,68 @@ export default function App() {
     .reduce((s, t) => s + Number(ethers.formatEther(t.bounty || 0n)), 0);
   const completedCount = tasks.filter((t) => t.status === 3).length;
 
+  const toggleCategory = (id) => {
+    setSelectedCategories((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
+    );
+  };
+
+  const clearFilters = () => {
+    setMinBounty("");
+    setMaxBounty("");
+    setSelectedCategories([]);
+    setShowAll(false);
+    setSearchQuery("");
+  };
+
+  const hasActiveFilters =
+    minBounty ||
+    maxBounty ||
+    selectedCategories.length > 0 ||
+    showAll ||
+    searchQuery;
+
+  // ── DISPLAY TASKS ──
   const displayTasks = tasks.filter((t) => {
-    if (t.status === 4) return filterStatus === "4";
-    if (filterStatus !== "all") return t.status === Number(filterStatus);
+    // By default only show open tasks unless showAll is on
+    if (!showAll && t.status !== 0) return false;
+    // Hide cancelled always unless showAll
+    if (t.status === 4 && !showAll) return false;
+
+    // Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      return (
-        t.title.toLowerCase().includes(q) ||
-        t.description.toLowerCase().includes(q)
-      );
+      if (
+        !t.title.toLowerCase().includes(q) &&
+        !t.description.toLowerCase().includes(q)
+      )
+        return false;
     }
+
+    // Bounty range
+    const bountyEth = Number(ethers.formatEther(t.bounty || 0n));
+    if (minBounty && bountyEth < Number(minBounty)) return false;
+    if (maxBounty && bountyEth > Number(maxBounty)) return false;
+
+    // Category
+    if (selectedCategories.length > 0) {
+      const taskCat = getCategory(t.title, t.description);
+      if (!selectedCategories.includes(taskCat)) return false;
+    }
+
     return true;
   });
+
+  // Count tasks per category (from open tasks only unless showAll)
+  const baseTasks = showAll
+    ? tasks.filter((t) => t.status !== 4)
+    : tasks.filter((t) => t.status === 0);
+  const categoryCounts = CATEGORIES.reduce((acc, cat) => {
+    acc[cat.id] = baseTasks.filter(
+      (t) => getCategory(t.title, t.description) === cat.id,
+    ).length;
+    return acc;
+  }, {});
 
   // ── TASK CARD ──
   const renderCard = (task) => {
@@ -427,7 +506,74 @@ export default function App() {
     );
   };
 
-  // ── MY TASKS DASHBOARD ──
+  // ── SIDEBAR ──
+  const renderSidebar = () => (
+    <aside className="sidebar">
+      {/* Bounty Range */}
+      <div className="sidebar-section">
+        <span className="sidebar-heading">Bounty Range</span>
+        <div className="bounty-range-row">
+          <input
+            className="bounty-range-input"
+            placeholder="Min ETH"
+            type="number"
+            min="0"
+            step="0.01"
+            value={minBounty}
+            onChange={(e) => setMinBounty(e.target.value)}
+          />
+          <span className="bounty-range-sep">—</span>
+          <input
+            className="bounty-range-input"
+            placeholder="Max ETH"
+            type="number"
+            min="0"
+            step="0.01"
+            value={maxBounty}
+            onChange={(e) => setMaxBounty(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Category */}
+      <div className="sidebar-section">
+        <span className="sidebar-heading">Category</span>
+        <div className="category-list">
+          {CATEGORIES.map(({ id, label }) => (
+            <label className="category-item" key={id}>
+              <input
+                type="checkbox"
+                checked={selectedCategories.includes(id)}
+                onChange={() => toggleCategory(id)}
+              />
+              <span className="category-label">{label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="sidebar-divider" />
+
+      {/* Show all statuses toggle */}
+      <div className="sidebar-section">
+        <div className="show-all-toggle" onClick={() => setShowAll((v) => !v)}>
+          <span className="show-all-label">Show all statuses</span>
+          <div className={`toggle-switch ${showAll ? "on" : ""}`}>
+            <div className="toggle-knob" />
+          </div>
+        </div>
+      </div>
+
+      {/* Clear */}
+      {hasActiveFilters && (
+        <button className="clear-filters-btn" onClick={clearFilters}>
+          ✕ Clear all filters
+        </button>
+      )}
+    </aside>
+  );
+
+  // ── MY TASKS ──
   const renderMyTasks = () => {
     if (!wallet)
       return (
@@ -488,7 +634,7 @@ export default function App() {
     );
   };
 
-  // ── TASK DETAIL MODAL ──
+  // ── DETAIL MODAL ──
   const renderDetailModal = () => {
     if (!selectedTask) return null;
     const task = selectedTask;
@@ -755,13 +901,11 @@ export default function App() {
                     </button>
                     <button className="nav-dropdown-item" disabled>
                       <MessageSquare size={15} strokeWidth={1.75} />
-                      Messages
-                      <span className="soon-badge">Soon</span>
+                      Messages<span className="soon-badge">Soon</span>
                     </button>
                     <button className="nav-dropdown-item" disabled>
                       <User size={15} strokeWidth={1.75} />
-                      Profile
-                      <span className="soon-badge">Soon</span>
+                      Profile<span className="soon-badge">Soon</span>
                     </button>
                   </div>
                 )}
@@ -846,18 +990,6 @@ export default function App() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               <div className="toolbar-right">
-                <select
-                  className="filter-select"
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                >
-                  <option value="all">All statuses</option>
-                  <option value="0">Open</option>
-                  <option value="1">Claimed</option>
-                  <option value="2">Submitted</option>
-                  <option value="3">Completed</option>
-                  <option value="4">Cancelled</option>
-                </select>
                 <button
                   className="btn btn-primary"
                   onClick={() =>
@@ -868,23 +1000,42 @@ export default function App() {
                 </button>
               </div>
             </div>
-            {displayTasks.length === 0 ? (
-              <div className="empty">
-                <div className="empty-icon">📋</div>
-                <p className="empty-title">No tasks found</p>
-                <p className="empty-sub">Be the first to post a bounty task.</p>
-                <button
-                  className="btn btn-primary"
-                  onClick={() =>
-                    wallet ? setPostModal(true) : connectWallet()
-                  }
-                >
-                  Post a Task →
-                </button>
+
+            <div className="browse-layout">
+              {renderSidebar()}
+              <div className="browse-content">
+                {displayTasks.length === 0 ? (
+                  <div className="empty">
+                    <div className="empty-icon">📋</div>
+                    <p className="empty-title">No tasks found</p>
+                    <p className="empty-sub">
+                      {hasActiveFilters
+                        ? "Try adjusting your filters."
+                        : "Be the first to post a bounty task."}
+                    </p>
+                    {!hasActiveFilters && (
+                      <button
+                        className="btn btn-primary"
+                        onClick={() =>
+                          wallet ? setPostModal(true) : connectWallet()
+                        }
+                      >
+                        Post a Task →
+                      </button>
+                    )}
+                    {hasActiveFilters && (
+                      <button className="btn btn-ghost" onClick={clearFilters}>
+                        Clear filters
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="task-grid">
+                    {displayTasks.map(renderCard)}
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="task-grid">{displayTasks.map(renderCard)}</div>
-            )}
+            </div>
           </>
         )}
       </main>
