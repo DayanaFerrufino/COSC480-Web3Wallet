@@ -429,20 +429,11 @@ export default function App() {
   };
 
   const hasActiveFilters =
-    minBounty ||
-    maxBounty ||
-    selectedCategories.length > 0 ||
-    showAll ||
-    searchQuery;
+    minBounty || maxBounty || selectedCategories.length > 0;
 
   // ── DISPLAY TASKS ──
   const displayTasks = tasks.filter((t) => {
-    // By default only show open tasks unless showAll is on
-    if (!showAll && t.status !== 0) return false;
-    // Hide cancelled always unless showAll
-    if (t.status === 4 && !showAll) return false;
-
-    // Search
+    if (t.status !== 0) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       if (
@@ -451,31 +442,15 @@ export default function App() {
       )
         return false;
     }
-
-    // Bounty range
     const bountyEth = Number(ethers.formatEther(t.bounty || 0n));
     if (minBounty && bountyEth < Number(minBounty)) return false;
     if (maxBounty && bountyEth > Number(maxBounty)) return false;
-
-    // Category
     if (selectedCategories.length > 0) {
-      const taskCat = getCategory(t.title, t.description);
-      if (!selectedCategories.includes(taskCat)) return false;
+      if (!selectedCategories.includes(getCategory(t.title, t.description)))
+        return false;
     }
-
     return true;
   });
-
-  // Count tasks per category (from open tasks only unless showAll)
-  const baseTasks = showAll
-    ? tasks.filter((t) => t.status !== 4)
-    : tasks.filter((t) => t.status === 0);
-  const categoryCounts = CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = baseTasks.filter(
-      (t) => getCategory(t.title, t.description) === cat.id,
-    ).length;
-    return acc;
-  }, {});
 
   // ── TASK CARD ──
   const renderCard = (task) => {
@@ -509,7 +484,6 @@ export default function App() {
   // ── SIDEBAR ──
   const renderSidebar = () => (
     <aside className="sidebar">
-      {/* Bounty Range */}
       <div className="sidebar-section">
         <span className="sidebar-heading">Bounty Range</span>
         <div className="bounty-range-row">
@@ -535,7 +509,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Category */}
       <div className="sidebar-section">
         <span className="sidebar-heading">Category</span>
         <div className="category-list">
@@ -552,19 +525,6 @@ export default function App() {
         </div>
       </div>
 
-      <div className="sidebar-divider" />
-
-      {/* Show all statuses toggle */}
-      <div className="sidebar-section">
-        <div className="show-all-toggle" onClick={() => setShowAll((v) => !v)}>
-          <span className="show-all-label">Show all statuses</span>
-          <div className={`toggle-switch ${showAll ? "on" : ""}`}>
-            <div className="toggle-knob" />
-          </div>
-        </div>
-      </div>
-
-      {/* Clear */}
       {hasActiveFilters && (
         <button className="clear-filters-btn" onClick={clearFilters}>
           ✕ Clear all filters
@@ -572,7 +532,6 @@ export default function App() {
       )}
     </aside>
   );
-
   // ── MY TASKS ──
   const renderMyTasks = () => {
     if (!wallet)
