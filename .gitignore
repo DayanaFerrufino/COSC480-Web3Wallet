@@ -19,6 +19,22 @@
 # Hardhat coverage reports
 /coverage
 
-
 node_modules
 .env
+
+# dependencies
+node_modules
+frontend/node_modules
+server/node_modules
+
+# env files
+.env
+server/.env
+frontend/.env
+
+# build output
+dist
+frontend/dist
+
+# misc
+.DS_Store

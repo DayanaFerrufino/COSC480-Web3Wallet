@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ethers } from "ethers";
+import { signInWithWallet, signOut } from "./lib/auth";
 import {
   Code2,
   Paintbrush,
@@ -295,6 +296,12 @@ export default function App() {
       });
       setWallet(address);
       await checkNetwork();
+
+      // sign in with SIWE right after connecting
+      const provider = getProvider();
+      const signer = await provider.getSigner();
+      await signInWithWallet(address, signer);
+
       await fetchTasks();
     } catch (e) {
       console.error(e);
