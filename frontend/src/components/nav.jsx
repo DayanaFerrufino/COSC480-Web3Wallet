@@ -89,9 +89,15 @@ export default function Nav({
                     <LayoutDashboard size={15} strokeWidth={1.75} />
                     My Tasks
                   </button>
-                  <button className="nav-dropdown-item" disabled>
+                  <button
+                    className="nav-dropdown-item"
+                    onClick={() => {
+                      setView("messages");
+                      setDropdownOpen(false);
+                    }}
+                  >
                     <MessageSquare size={15} strokeWidth={1.75} />
-                    Messages<span className="soon-badge">Soon</span>
+                    Messages
                   </button>
                   <button className="nav-dropdown-item" disabled>
                     <User size={15} strokeWidth={1.75} />

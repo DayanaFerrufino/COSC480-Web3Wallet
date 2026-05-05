@@ -6,6 +6,7 @@ import BrowsePage from "./pages/BrowsePage";
 import MyTasksPage from "./pages/MyTasksPage";
 import MessagesPage from "./pages/MessagesPage";
 import ProfilePage from "./pages/ProfilePage";
+import { supabase } from "./lib/supabase";
 import "./App.css";
 
 const CONTRACT_ADDRESS = "0x8d8186d74F6ccB8533C4bBF9392De81E5554501C";
@@ -215,10 +216,27 @@ export default function App() {
     setPostBounty("");
   };
 
-  const claimTask = (id) =>
-    getContract(true).then((c) =>
-      doTx(() => c.claimTask(id), "Task claimed! Submit your work when done."),
+  const claimTask = async (id) => {
+    const c = await getContract(true);
+    await doTx(
+      () => c.claimTask(id),
+      "Task claimed! Submit your work when done.",
     );
+
+    // create conversation in supabase
+    const task = tasks.find((t) => t.id === id);
+    if (task) {
+      const { error } = await supabase.from("conversations").upsert(
+        {
+          task_id: id,
+          poster_address: task.poster.toLowerCase(),
+          worker_address: wallet.toLowerCase(),
+        },
+        { onConflict: "task_id" },
+      );
+      if (error) console.error("Failed to create conversation:", error);
+    }
+  };
 
   const submitWork = (id) => {
     const proof = proofInput.trim();
@@ -428,7 +446,14 @@ export default function App() {
           <div className="detail-footer">
             <button
               className="btn btn-message"
-              onClick={() => alert("Messaging coming soon!")}
+              onClick={() => {
+                if (!wallet) {
+                  alert("Connect your wallet to message");
+                  return;
+                }
+                setSelectedTask(null);
+                setView("messages");
+              }}
             >
               💬 Message Poster
             </button>
@@ -464,6 +489,7 @@ export default function App() {
             wallet={wallet}
             connectWallet={connectWallet}
             setView={setView}
+            tasks={tasks}
           />
         );
       case "profile":
@@ -506,113 +532,115 @@ export default function App() {
         </div>
       )}
 
-      <div className="hero">
-        <div className="hero-inner">
-          {view === "myTasks" ? (
-            <>
-              <div className="hero-text">
-                <h1 className="hero-title">
-                  My <span>Dashboard</span>
-                </h1>
-                <p className="hero-sub">Your activity across TaskBounty.</p>
-              </div>
-              <div className="stats-row">
-                <div className="stat-card">
-                  <span className="stat-num">
-                    {
-                      tasks.filter(
-                        (t) =>
-                          wallet &&
-                          t.poster.toLowerCase() === wallet.toLowerCase(),
-                      ).length
-                    }
-                  </span>
-                  <span className="stat-label">Posted</span>
+      {(view === "browse" || view === "myTasks") && (
+        <div className="hero">
+          <div className="hero-inner">
+            {view === "myTasks" ? (
+              <>
+                <div className="hero-text">
+                  <h1 className="hero-title">
+                    My <span>Dashboard</span>
+                  </h1>
+                  <p className="hero-sub">Your activity across TaskBounty.</p>
                 </div>
-                <div className="stat-card">
-                  <span className="stat-num">
-                    {
-                      tasks.filter(
-                        (t) =>
-                          wallet &&
-                          t.worker &&
-                          t.worker.toLowerCase() === wallet.toLowerCase(),
-                      ).length
-                    }
-                  </span>
-                  <span className="stat-label">Worked on</span>
+                <div className="stats-row">
+                  <div className="stat-card">
+                    <span className="stat-num">
+                      {
+                        tasks.filter(
+                          (t) =>
+                            wallet &&
+                            t.poster.toLowerCase() === wallet.toLowerCase(),
+                        ).length
+                      }
+                    </span>
+                    <span className="stat-label">Posted</span>
+                  </div>
+                  <div className="stat-card">
+                    <span className="stat-num">
+                      {
+                        tasks.filter(
+                          (t) =>
+                            wallet &&
+                            t.worker &&
+                            t.worker.toLowerCase() === wallet.toLowerCase(),
+                        ).length
+                      }
+                    </span>
+                    <span className="stat-label">Worked on</span>
+                  </div>
+                  <div className="stat-card">
+                    <span className="stat-num">
+                      {tasks
+                        .filter(
+                          (t) =>
+                            wallet &&
+                            t.worker &&
+                            t.worker.toLowerCase() === wallet.toLowerCase() &&
+                            t.status === 3,
+                        )
+                        .reduce(
+                          (s, t) =>
+                            s + Number(ethers.formatEther(t.bounty || 0n)),
+                          0,
+                        )
+                        .toFixed(3)}
+                    </span>
+                    <span className="stat-label">ETH earned</span>
+                  </div>
+                  <div className="stat-card">
+                    <span className="stat-num">
+                      {tasks
+                        .filter(
+                          (t) =>
+                            wallet &&
+                            t.poster.toLowerCase() === wallet.toLowerCase() &&
+                            t.status === 3,
+                        )
+                        .reduce(
+                          (s, t) =>
+                            s + Number(ethers.formatEther(t.bounty || 0n)),
+                          0,
+                        )
+                        .toFixed(3)}
+                    </span>
+                    <span className="stat-label">ETH paid out</span>
+                  </div>
                 </div>
-                <div className="stat-card">
-                  <span className="stat-num">
-                    {tasks
-                      .filter(
-                        (t) =>
-                          wallet &&
-                          t.worker &&
-                          t.worker.toLowerCase() === wallet.toLowerCase() &&
-                          t.status === 3,
-                      )
-                      .reduce(
-                        (s, t) =>
-                          s + Number(ethers.formatEther(t.bounty || 0n)),
-                        0,
-                      )
-                      .toFixed(3)}
-                  </span>
-                  <span className="stat-label">ETH earned</span>
+              </>
+            ) : (
+              <>
+                <div className="hero-text">
+                  <h1 className="hero-title">
+                    Ready to earn or <span>post a bounty?</span>
+                  </h1>
+                  <p className="hero-sub">
+                    Claim tasks, submit work, and get paid in ETH.
+                  </p>
                 </div>
-                <div className="stat-card">
-                  <span className="stat-num">
-                    {tasks
-                      .filter(
-                        (t) =>
-                          wallet &&
-                          t.poster.toLowerCase() === wallet.toLowerCase() &&
-                          t.status === 3,
-                      )
-                      .reduce(
-                        (s, t) =>
-                          s + Number(ethers.formatEther(t.bounty || 0n)),
-                        0,
-                      )
-                      .toFixed(3)}
-                  </span>
-                  <span className="stat-label">ETH paid out</span>
+                <div className="stats-row">
+                  <div className="stat-card">
+                    <span className="stat-num">{openCount}</span>
+                    <span className="stat-label">Open tasks</span>
+                  </div>
+                  <div className="stat-card">
+                    <span className="stat-num">{totalLocked.toFixed(3)}</span>
+                    <span className="stat-label">ETH locked</span>
+                  </div>
+                  <div className="stat-card">
+                    <span className="stat-num">{completedCount}</span>
+                    <span className="stat-label">Completed</span>
+                  </div>
+                  <div className="stat-card">
+                    <span className="stat-num">{tasks.length}</span>
+                    <span className="stat-label">Total tasks</span>
+                  </div>
                 </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="hero-text">
-                <h1 className="hero-title">
-                  Ready to earn or <span>post a bounty?</span>
-                </h1>
-                <p className="hero-sub">
-                  Claim tasks, submit work, and get paid in ETH.
-                </p>
-              </div>
-              <div className="stats-row">
-                <div className="stat-card">
-                  <span className="stat-num">{openCount}</span>
-                  <span className="stat-label">Open tasks</span>
-                </div>
-                <div className="stat-card">
-                  <span className="stat-num">{totalLocked.toFixed(3)}</span>
-                  <span className="stat-label">ETH locked</span>
-                </div>
-                <div className="stat-card">
-                  <span className="stat-num">{completedCount}</span>
-                  <span className="stat-label">Completed</span>
-                </div>
-                <div className="stat-card">
-                  <span className="stat-num">{tasks.length}</span>
-                  <span className="stat-label">Total tasks</span>
-                </div>
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <main className="main">{renderPage()}</main>
 
