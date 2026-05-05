@@ -337,7 +337,6 @@ export default function BrowsePage({
         <div className="browse-content">
           {displayTasks.length === 0 ? (
             <div className="empty">
-              <div className="empty-icon">📋</div>
               <p className="empty-title">No tasks found</p>
               <p className="empty-sub">
                 {hasActiveFilters

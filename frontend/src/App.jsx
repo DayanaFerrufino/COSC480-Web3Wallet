@@ -223,9 +223,17 @@ export default function App() {
       "Task claimed! Submit your work when done.",
     );
 
-    // create conversation in supabase
     const task = tasks.find((t) => t.id === id);
     if (task) {
+      // make sure both users exist first
+      await supabase
+        .from("users")
+        .upsert([
+          { address: task.poster.toLowerCase() },
+          { address: wallet.toLowerCase() },
+        ]);
+
+      // then create the conversation
       const { error } = await supabase.from("conversations").upsert(
         {
           task_id: id,
@@ -234,7 +242,9 @@ export default function App() {
         },
         { onConflict: "task_id" },
       );
+
       if (error) console.error("Failed to create conversation:", error);
+      else console.log("Conversation created!");
     }
   };
 
@@ -276,6 +286,32 @@ export default function App() {
       task.worker &&
       task.worker.toLowerCase() === wallet.toLowerCase();
     const canAct = wallet && !wrongNetwork;
+    const openConversation = async (task) => {
+      if (!wallet) {
+        alert("Connect your wallet to message");
+        return;
+      }
+
+      // make sure conversation exists
+      await supabase
+        .from("users")
+        .upsert([
+          { address: task.poster.toLowerCase() },
+          { address: wallet.toLowerCase() },
+        ]);
+
+      await supabase.from("conversations").upsert(
+        {
+          task_id: task.id,
+          poster_address: task.poster.toLowerCase(),
+          worker_address: task.worker?.toLowerCase() || wallet.toLowerCase(),
+        },
+        { onConflict: "task_id" },
+      );
+
+      setSelectedTask(null);
+      setView("messages");
+    };
 
     return (
       <div className="overlay" onClick={() => setSelectedTask(null)}>
@@ -446,16 +482,9 @@ export default function App() {
           <div className="detail-footer">
             <button
               className="btn btn-message"
-              onClick={() => {
-                if (!wallet) {
-                  alert("Connect your wallet to message");
-                  return;
-                }
-                setSelectedTask(null);
-                setView("messages");
-              }}
+              onClick={() => openConversation(task)}
             >
-              💬 Message Poster
+              Message Poster
             </button>
             <a
               href={"https://sepolia.etherscan.io/address/" + CONTRACT_ADDRESS}

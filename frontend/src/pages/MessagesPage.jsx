@@ -182,7 +182,6 @@ export default function MessagesPage({
       <div className="message-thread">
         {!selectedConv ? (
           <div className="empty">
-            <div className="empty-icon">💬</div>
             <p className="empty-sub">No conversations</p>
           </div>
         ) : (
