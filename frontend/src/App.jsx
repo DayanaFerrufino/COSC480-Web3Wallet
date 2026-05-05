@@ -23,6 +23,7 @@ import {
   LayoutDashboard,
   MessageSquare,
   User,
+  LogOut,
 } from "lucide-react";
 import "./App.css";
 
@@ -872,6 +873,17 @@ export default function App() {
                     <button className="nav-dropdown-item" disabled>
                       <User size={15} strokeWidth={1.75} />
                       Profile<span className="soon-badge">Soon</span>
+                    </button>
+                    <button
+                      className="nav-dropdown-item"
+                      onClick={async () => {
+                        await signOut();
+                        setWallet(null);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      <LogOut size={15} strokeWidth={1.75} />
+                      Sign Out
                     </button>
                   </div>
                 )}
