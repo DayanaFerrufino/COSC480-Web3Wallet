@@ -672,6 +672,28 @@ export default function App() {
       )}
 
       <main className="main">{renderPage()}</main>
+      {txStatus === "pending" && (
+        <div className="tx-overlay">
+          <div className="tx-overlay-card">
+            <div className="tx-spinner" />
+            <p className="tx-overlay-title">Transaction pending…</p>
+            <p className="tx-overlay-sub">
+              Please wait while your transaction confirms on Sepolia.
+            </p>
+
+            {txHash && (
+              <a
+                href={"https://sepolia.etherscan.io/tx/" + txHash}
+                target="_blank"
+                rel="noreferrer"
+                className="etherscan-btn"
+              >
+                View on Etherscan ↗
+              </a>
+            )}
+          </div>
+        </div>
+      )}
 
       {postModal && (
         <div className="overlay" onClick={() => setPostModal(false)}>

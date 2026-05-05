@@ -36,7 +36,11 @@ export default function Nav({
   return (
     <nav className="nav">
       <div className="nav-inner">
-        <div className="nav-brand">
+        <div
+          className="nav-brand"
+          onClick={() => setView("browse")}
+          style={{ cursor: "pointer" }}
+        >
           <div className="nav-logo">TB</div>
           <span className="nav-name">TaskBounty</span>
           <span className="nav-network">Sepolia</span>
