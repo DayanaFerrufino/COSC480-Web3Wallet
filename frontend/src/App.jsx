@@ -1,33 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
-import { signInWithWallet, signOut } from "./lib/auth";
-import {
-  Code2,
-  Paintbrush,
-  FileText,
-  Bug,
-  BarChart2,
-  Shield,
-  Rocket,
-  FlaskConical,
-  Smartphone,
-  Database,
-  Megaphone,
-  Globe,
-  Coins,
-  Wrench,
-  Video,
-  BookOpen,
-  Briefcase,
-  ChevronDown,
-  LayoutDashboard,
-  MessageSquare,
-  User,
-  LogOut,
-} from "lucide-react";
+import { signInWithWallet } from "./lib/auth";
+import Nav from "./components/Nav";
+import BrowsePage from "./pages/BrowsePage";
+import MyTasksPage from "./pages/MyTasksPage";
+import MessagesPage from "./pages/MessagesPage";
+import ProfilePage from "./pages/ProfilePage";
 import "./App.css";
 
 const CONTRACT_ADDRESS = "0x8d8186d74F6ccB8533C4bBF9392De81E5554501C";
+const SEPOLIA_CHAIN_ID = "0xaa36a7";
 
 const ABI = [
   "function taskCount() view returns (uint256)",
@@ -53,155 +35,28 @@ const STATUS_CLASSES = [
   "completed",
   "cancelled",
 ];
-const SEPOLIA_CHAIN_ID = "0xaa36a7";
 
-// ── CATEGORIES ──
-const CATEGORIES = [
-  {
-    id: "blockchain",
-    label: "Blockchain & Web3",
-    Icon: Coins,
-    keywords: [
-      "solidity",
-      "contract",
-      "smart",
-      "web3",
-      "dapp",
-      "blockchain",
-      "token",
-      "nft",
-    ],
-  },
-  {
-    id: "dev",
-    label: "Development",
-    Icon: Code2,
-    keywords: [
-      "code",
-      "dev",
-      "develop",
-      "frontend",
-      "backend",
-      "api",
-      "script",
-      "build",
-      "react",
-      "node",
-    ],
-  },
-  {
-    id: "design",
-    label: "Design",
-    Icon: Paintbrush,
-    keywords: [
-      "design",
-      "ui",
-      "ux",
-      "figma",
-      "logo",
-      "brand",
-      "graphic",
-      "visual",
-      "css",
-      "style",
-    ],
-  },
-  {
-    id: "writing",
-    label: "Writing & Docs",
-    Icon: FileText,
-    keywords: [
-      "write",
-      "docs",
-      "content",
-      "blog",
-      "copy",
-      "article",
-      "documentation",
-      "text",
-    ],
-  },
-  {
-    id: "bugfix",
-    label: "Bug Fix",
-    Icon: Bug,
-    keywords: ["fix", "debug", "error", "issue", "patch", "broken", "bug"],
-  },
-  {
-    id: "data",
-    label: "Data & Analytics",
-    Icon: BarChart2,
-    keywords: [
-      "data",
-      "analytics",
-      "chart",
-      "dashboard",
-      "report",
-      "spreadsheet",
-      "metric",
-    ],
-  },
-  {
-    id: "security",
-    label: "Security",
-    Icon: Shield,
-    keywords: [
-      "security",
-      "audit",
-      "hack",
-      "protect",
-      "pentest",
-      "vulnerability",
-    ],
-  },
-  {
-    id: "devops",
-    label: "DevOps",
-    Icon: Rocket,
-    keywords: [
-      "deploy",
-      "launch",
-      "ship",
-      "release",
-      "infrastructure",
-      "devops",
-      "server",
-    ],
-  },
-  {
-    id: "testing",
-    label: "Testing",
-    Icon: FlaskConical,
-    keywords: ["test", "qa", "testing", "quality"],
-  },
-  {
-    id: "marketing",
-    label: "Marketing",
-    Icon: Megaphone,
-    keywords: ["market", "seo", "social", "campaign", "ads", "growth"],
-  },
-  {
-    id: "mobile",
-    label: "Mobile",
-    Icon: Smartphone,
-    keywords: ["mobile", "app", "ios", "android"],
-  },
-  { id: "other", label: "Other", Icon: Briefcase, keywords: [] },
-];
-
-function getCategory(title = "", description = "") {
-  const text = `${title} ${description}`.toLowerCase();
-  for (const cat of CATEGORIES) {
-    if (cat.id === "other") continue;
-    if (cat.keywords.some((kw) => text.includes(kw))) return cat.id;
-  }
-  return "other";
-}
-
-function getTaskIcon(title = "", description = "") {
-  const catId = getCategory(title, description);
-  return CATEGORIES.find((c) => c.id === catId)?.Icon ?? Briefcase;
-}
+const fmtEth = (wei) =>
+  wei != null ? Number(ethers.formatEther(wei)).toFixed(4) : "—";
+const fmtDate = (ts) =>
+  ts
+    ? new Date(ts * 1000).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "";
+const fmtTime = (ts) =>
+  ts
+    ? new Date(ts * 1000).toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
+const short = (addr) =>
+  addr && addr !== ethers.ZeroAddress
+    ? `${addr.slice(0, 6)}…${addr.slice(-4)}`
+    : "—";
 
 export default function App() {
   const [wallet, setWallet] = useState(null);
@@ -210,7 +65,6 @@ export default function App() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState("browse");
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [modal, setModal] = useState(null);
   const [postModal, setPostModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -220,13 +74,6 @@ export default function App() {
   const [postDesc, setPostDesc] = useState("");
   const [postBounty, setPostBounty] = useState("");
   const [proofInput, setProofInput] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  // Sidebar filters
-  const [minBounty, setMinBounty] = useState("");
-  const [maxBounty, setMaxBounty] = useState("");
-  const [selectedCategories, setSelectedCategories] = useState([]);
-  const [showAll, setShowAll] = useState(false);
-  const dropdownRef = useRef(null);
 
   const getProvider = () => new ethers.BrowserProvider(window.ethereum);
   const getContract = async (withSigner = false) => {
@@ -263,21 +110,15 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  useEffect(() => {
     if (selectedTask) {
       const updated = tasks.find((t) => t.id === selectedTask.id);
       if (updated) setSelectedTask(updated);
     }
   }, [tasks]);
-
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const checkNetwork = async () => {
     const chainId = await window.ethereum.request({ method: "eth_chainId" });
@@ -297,12 +138,16 @@ export default function App() {
       });
       setWallet(address);
       await checkNetwork();
-
-      // sign in with SIWE right after connecting
       const provider = getProvider();
       const signer = await provider.getSigner();
-      await signInWithWallet(address, signer);
-
+      try {
+        await signInWithWallet(address, signer);
+      } catch (siweError) {
+        console.error("SIWE failed:", siweError);
+        alert("Sign in failed: " + siweError.message);
+        setWallet(null);
+        return;
+      }
       await fetchTasks();
     } catch (e) {
       console.error(e);
@@ -314,7 +159,7 @@ export default function App() {
   useEffect(() => {
     if (!window.ethereum) return;
     window.ethereum.request({ method: "eth_accounts" }).then(([addr]) => {
-      if (addr) {
+      if (addr && localStorage.getItem("tb_token")) {
         setWallet(addr);
         checkNetwork();
         fetchTasks();
@@ -374,6 +219,7 @@ export default function App() {
     getContract(true).then((c) =>
       doTx(() => c.claimTask(id), "Task claimed! Submit your work when done."),
     );
+
   const submitWork = (id) => {
     const proof = proofInput.trim();
     if (!proof) return;
@@ -385,36 +231,16 @@ export default function App() {
     );
     setProofInput("");
   };
+
   const approveWork = (id) =>
     getContract(true).then((c) =>
       doTx(() => c.approveWork(id), "Approved! Bounty sent to worker."),
     );
+
   const cancelTask = (id) =>
     getContract(true).then((c) =>
       doTx(() => c.cancelTask(id), "Task cancelled. Bounty refunded."),
     );
-
-  const short = (addr) =>
-    addr && addr !== ethers.ZeroAddress
-      ? `${addr.slice(0, 6)}…${addr.slice(-4)}`
-      : "—";
-  const fmtEth = (wei) =>
-    wei != null ? Number(ethers.formatEther(wei)).toFixed(4) : "—";
-  const fmtDate = (ts) =>
-    ts
-      ? new Date(ts * 1000).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        })
-      : "";
-  const fmtTime = (ts) =>
-    ts
-      ? new Date(ts * 1000).toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-        })
-      : "";
 
   const openCount = tasks.filter((t) => t.status === 0).length;
   const totalLocked = tasks
@@ -422,186 +248,6 @@ export default function App() {
     .reduce((s, t) => s + Number(ethers.formatEther(t.bounty || 0n)), 0);
   const completedCount = tasks.filter((t) => t.status === 3).length;
 
-  const toggleCategory = (id) => {
-    setSelectedCategories((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
-    );
-  };
-
-  const clearFilters = () => {
-    setMinBounty("");
-    setMaxBounty("");
-    setSelectedCategories([]);
-    setShowAll(false);
-    setSearchQuery("");
-  };
-
-  const hasActiveFilters =
-    minBounty || maxBounty || selectedCategories.length > 0;
-
-  // ── DISPLAY TASKS ──
-  const displayTasks = tasks.filter((t) => {
-    if (t.status !== 0) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      if (
-        !t.title.toLowerCase().includes(q) &&
-        !t.description.toLowerCase().includes(q)
-      )
-        return false;
-    }
-    const bountyEth = Number(ethers.formatEther(t.bounty || 0n));
-    if (minBounty && bountyEth < Number(minBounty)) return false;
-    if (maxBounty && bountyEth > Number(maxBounty)) return false;
-    if (selectedCategories.length > 0) {
-      if (!selectedCategories.includes(getCategory(t.title, t.description)))
-        return false;
-    }
-    return true;
-  });
-
-  // ── TASK CARD ──
-  const renderCard = (task) => {
-    const TaskIcon = getTaskIcon(task.title, task.description);
-    return (
-      <div
-        className="task-card"
-        key={task.id}
-        onClick={() => setSelectedTask(task)}
-      >
-        <div className="card-top">
-          <div className="card-icon">
-            <TaskIcon size={20} strokeWidth={1.75} />
-          </div>
-          <span className={`status-pill ${STATUS_CLASSES[task.status]}`}>
-            {STATUS_LABELS[task.status]}
-          </span>
-        </div>
-        <h3 className="card-title">{task.title}</h3>
-        <p className="card-desc">{task.description}</p>
-        <div className="card-divider" />
-        <div className="card-footer-row">
-          <span className="bounty-badge">{fmtEth(task.bounty)} ETH</span>
-          <span className="card-date">{fmtDate(task.createdAt)}</span>
-        </div>
-        <div className="card-view-hint">View details →</div>
-      </div>
-    );
-  };
-
-  // ── SIDEBAR ──
-  const renderSidebar = () => (
-    <aside className="sidebar">
-      <div className="sidebar-section">
-        <span className="sidebar-heading">Bounty Range</span>
-        <div className="bounty-range-row">
-          <input
-            className="bounty-range-input"
-            placeholder="Min ETH"
-            type="number"
-            min="0"
-            step="0.01"
-            value={minBounty}
-            onChange={(e) => setMinBounty(e.target.value)}
-          />
-          <span className="bounty-range-sep">—</span>
-          <input
-            className="bounty-range-input"
-            placeholder="Max ETH"
-            type="number"
-            min="0"
-            step="0.01"
-            value={maxBounty}
-            onChange={(e) => setMaxBounty(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="sidebar-section">
-        <span className="sidebar-heading">Category</span>
-        <div className="category-list">
-          {CATEGORIES.map(({ id, label }) => (
-            <label className="category-item" key={id}>
-              <input
-                type="checkbox"
-                checked={selectedCategories.includes(id)}
-                onChange={() => toggleCategory(id)}
-              />
-              <span className="category-label">{label}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {hasActiveFilters && (
-        <button className="clear-filters-btn" onClick={clearFilters}>
-          ✕ Clear all filters
-        </button>
-      )}
-    </aside>
-  );
-  // ── MY TASKS ──
-  const renderMyTasks = () => {
-    if (!wallet)
-      return (
-        <div className="empty">
-          <div className="empty-icon">🔒</div>
-          <p className="empty-title">Connect your wallet</p>
-          <p className="empty-sub">
-            Connect to see your posted and claimed tasks.
-          </p>
-          <button className="btn btn-primary" onClick={connectWallet}>
-            Connect Wallet
-          </button>
-        </div>
-      );
-
-    const posted = tasks.filter(
-      (t) => t.poster.toLowerCase() === wallet.toLowerCase(),
-    );
-    const working = tasks.filter(
-      (t) =>
-        t.worker &&
-        t.worker !== ethers.ZeroAddress &&
-        t.worker.toLowerCase() === wallet.toLowerCase(),
-    );
-
-    const renderSection = (title, subtitle, items, emptyMsg) => (
-      <div className="my-tasks-section">
-        <div className="my-tasks-section-header">
-          <div>
-            <h2 className="my-tasks-section-title">{title}</h2>
-            <p className="my-tasks-section-sub">{subtitle}</p>
-          </div>
-          <span className="my-tasks-count">{items.length}</span>
-        </div>
-        {items.length === 0 ? (
-          <p className="my-tasks-empty">{emptyMsg}</p>
-        ) : (
-          <div className="task-grid">{items.map(renderCard)}</div>
-        )}
-      </div>
-    );
-
-    return (
-      <div className="my-tasks-dashboard">
-        {renderSection(
-          "Tasks I Posted",
-          "Bounties you created and locked ETH into",
-          posted,
-          "You haven't posted any tasks yet.",
-        )}
-        {renderSection(
-          "Tasks I'm Working On",
-          "Tasks you've claimed and are delivering",
-          working,
-          "You haven't claimed any tasks yet.",
-        )}
-      </div>
-    );
-  };
-
-  // ── DETAIL MODAL ──
   const renderDetailModal = () => {
     if (!selectedTask) return null;
     const task = selectedTask;
@@ -611,7 +257,6 @@ export default function App() {
       wallet &&
       task.worker &&
       task.worker.toLowerCase() === wallet.toLowerCase();
-    const TaskIcon = getTaskIcon(task.title, task.description);
     const canAct = wallet && !wrongNetwork;
 
     return (
@@ -619,9 +264,6 @@ export default function App() {
         <div className="detail-dialog" onClick={(e) => e.stopPropagation()}>
           <div className="detail-header">
             <div className="detail-header-left">
-              <div className="detail-icon">
-                <TaskIcon size={22} strokeWidth={1.75} />
-              </div>
               <div>
                 <div className="detail-header-top">
                   <span
@@ -658,7 +300,7 @@ export default function App() {
               <div className="detail-meta-item">
                 <span className="meta-label">Posted by</span>
                 <a
-                  href={`https://sepolia.etherscan.io/address/${task.poster}`}
+                  href={"https://sepolia.etherscan.io/address/" + task.poster}
                   target="_blank"
                   rel="noreferrer"
                   className="meta-value meta-link"
@@ -679,7 +321,7 @@ export default function App() {
                 <div className="detail-meta-item">
                   <span className="meta-label">Worker</span>
                   <a
-                    href={`https://sepolia.etherscan.io/address/${task.worker}`}
+                    href={"https://sepolia.etherscan.io/address/" + task.worker}
                     target="_blank"
                     rel="noreferrer"
                     className="meta-value meta-link"
@@ -716,8 +358,7 @@ export default function App() {
                       </span>
                       <span className="claim-info-sub">
                         Claiming commits you to deliver. The poster holds{" "}
-                        {fmtEth(task.bounty)} ETH in escrow until they approve
-                        your work.
+                        {fmtEth(task.bounty)} ETH in escrow.
                       </span>
                     </div>
                     <button
@@ -792,7 +433,7 @@ export default function App() {
               💬 Message Poster
             </button>
             <a
-              href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`}
+              href={"https://sepolia.etherscan.io/address/" + CONTRACT_ADDRESS}
               target="_blank"
               rel="noreferrer"
               className="btn btn-ghost btn-sm"
@@ -805,101 +446,58 @@ export default function App() {
     );
   };
 
+  const renderPage = () => {
+    switch (view) {
+      case "myTasks":
+        return (
+          <MyTasksPage
+            tasks={tasks}
+            wallet={wallet}
+            connectWallet={connectWallet}
+            setView={setView}
+            setSelectedTask={setSelectedTask}
+          />
+        );
+      case "messages":
+        return (
+          <MessagesPage
+            wallet={wallet}
+            connectWallet={connectWallet}
+            setView={setView}
+          />
+        );
+      case "profile":
+        return (
+          <ProfilePage
+            wallet={wallet}
+            connectWallet={connectWallet}
+            setView={setView}
+          />
+        );
+      default:
+        return (
+          <BrowsePage
+            tasks={tasks}
+            wallet={wallet}
+            connectWallet={connectWallet}
+            setSelectedTask={setSelectedTask}
+            setPostModal={setPostModal}
+          />
+        );
+    }
+  };
+
   return (
     <div className="page">
-      <nav className="nav">
-        <div className="nav-inner">
-          <div className="nav-brand">
-            <div className="nav-logo">TB</div>
-            <span className="nav-name">TaskBounty</span>
-            <span className="nav-network">Sepolia</span>
-          </div>
-          <div className="nav-right">
-            {txStatus === "pending" && (
-              <a
-                href={
-                  txHash ? `https://sepolia.etherscan.io/tx/${txHash}` : "#"
-                }
-                target="_blank"
-                rel="noreferrer"
-                className="tx-pill pending"
-              >
-                <span className="tx-dot" />
-                Confirming…
-              </a>
-            )}
-            {txStatus === "confirmed" && (
-              <a
-                href={
-                  txHash ? `https://sepolia.etherscan.io/tx/${txHash}` : "#"
-                }
-                target="_blank"
-                rel="noreferrer"
-                className="tx-pill confirmed"
-              >
-                ✓ Confirmed ↗
-              </a>
-            )}
-            {wallet ? (
-              <div className="nav-dropdown-wrap" ref={dropdownRef}>
-                <button
-                  className="wallet-chip"
-                  onClick={() => setDropdownOpen((o) => !o)}
-                >
-                  <span className="wallet-dot" />
-                  {short(wallet)}
-                  <ChevronDown
-                    size={13}
-                    strokeWidth={2.5}
-                    className={`chevron ${dropdownOpen ? "open" : ""}`}
-                  />
-                </button>
-                {dropdownOpen && (
-                  <div className="nav-dropdown">
-                    <button
-                      className="nav-dropdown-item"
-                      onClick={() => {
-                        setView("myTasks");
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      <LayoutDashboard size={15} strokeWidth={1.75} />
-                      My Tasks
-                    </button>
-                    <button className="nav-dropdown-item" disabled>
-                      <MessageSquare size={15} strokeWidth={1.75} />
-                      Messages<span className="soon-badge">Soon</span>
-                    </button>
-                    <button className="nav-dropdown-item" disabled>
-                      <User size={15} strokeWidth={1.75} />
-                      Profile<span className="soon-badge">Soon</span>
-                    </button>
-                    <button
-                      className="nav-dropdown-item"
-                      onClick={async () => {
-                        await signOut();
-                        setWallet(null);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      <LogOut size={15} strokeWidth={1.75} />
-                      Sign Out
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <button
-                className="btn btn-primary nav-connect"
-                onClick={connectWallet}
-                disabled={connecting}
-              >
-                {connecting ? "Connecting…" : "Connect Wallet"}
-              </button>
-            )}
-          </div>
-        </div>
-      </nav>
+      <Nav
+        wallet={wallet}
+        setWallet={setWallet}
+        txStatus={txStatus}
+        txHash={txHash}
+        setView={setView}
+        connectWallet={connectWallet}
+        connecting={connecting}
+      />
 
       {wrongNetwork && wallet && (
         <div className="network-bar">
@@ -1016,84 +614,7 @@ export default function App() {
         </div>
       </div>
 
-      <main className="main">
-        {view === "myTasks" ? (
-          <>
-            <div className="my-tasks-header">
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => setView("browse")}
-              >
-                ← Back
-              </button>
-              <div>
-                <h1 className="my-tasks-title">My Tasks</h1>
-                <p className="my-tasks-sub">
-                  Your posted bounties and claimed work
-                </p>
-              </div>
-            </div>
-            {renderMyTasks()}
-          </>
-        ) : (
-          <>
-            <div className="toolbar">
-              <input
-                className="search-input"
-                placeholder="Search tasks…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <div className="toolbar-right">
-                <button
-                  className="btn btn-primary"
-                  onClick={() =>
-                    wallet ? setPostModal(true) : connectWallet()
-                  }
-                >
-                  + Post a Task
-                </button>
-              </div>
-            </div>
-
-            <div className="browse-layout">
-              {renderSidebar()}
-              <div className="browse-content">
-                {displayTasks.length === 0 ? (
-                  <div className="empty">
-                    <div className="empty-icon">📋</div>
-                    <p className="empty-title">No tasks found</p>
-                    <p className="empty-sub">
-                      {hasActiveFilters
-                        ? "Try adjusting your filters."
-                        : "Be the first to post a bounty task."}
-                    </p>
-                    {!hasActiveFilters && (
-                      <button
-                        className="btn btn-primary"
-                        onClick={() =>
-                          wallet ? setPostModal(true) : connectWallet()
-                        }
-                      >
-                        Post a Task →
-                      </button>
-                    )}
-                    {hasActiveFilters && (
-                      <button className="btn btn-ghost" onClick={clearFilters}>
-                        Clear filters
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="task-grid">
-                    {displayTasks.map(renderCard)}
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
-        )}
-      </main>
+      <main className="main">{renderPage()}</main>
 
       {postModal && (
         <div className="overlay" onClick={() => setPostModal(false)}>
@@ -1191,7 +712,7 @@ export default function App() {
             <p className="modal-msg">{modal.message}</p>
             {txHash && (
               <a
-                href={`https://sepolia.etherscan.io/tx/${txHash}`}
+                href={"https://sepolia.etherscan.io/tx/" + txHash}
                 target="_blank"
                 rel="noreferrer"
                 className="etherscan-btn"
@@ -1214,7 +735,7 @@ export default function App() {
         <span>
           Contract:{" "}
           <a
-            href={`https://sepolia.etherscan.io/address/${CONTRACT_ADDRESS}`}
+            href={"https://sepolia.etherscan.io/address/" + CONTRACT_ADDRESS}
             target="_blank"
             rel="noreferrer"
           >

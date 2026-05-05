@@ -1,18 +1,23 @@
+import { Buffer } from "buffer";
 import { SiweMessage } from "siwe";
+import { ethers } from "ethers";
 import { supabase } from "./supabase";
 
+window.Buffer = Buffer;
+
 export const signInWithWallet = async (address, signer) => {
-  // 1. get nonce from backend
+  // checksum the address
+  const checksummedAddress = ethers.getAddress(address);
+
   const { nonce } = await fetch("http://localhost:3001/auth/nonce", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ address }),
+    body: JSON.stringify({ address: checksummedAddress }),
   }).then((r) => r.json());
 
-  // 2. build SIWE message
   const message = new SiweMessage({
     domain: window.location.host,
-    address,
+    address: checksummedAddress,
     statement: "Sign in to TaskBounty",
     uri: window.location.origin,
     version: "1",
@@ -20,21 +25,16 @@ export const signInWithWallet = async (address, signer) => {
     nonce,
   });
 
-  // 3. sign with MetaMask
   const signature = await signer.signMessage(message.prepareMessage());
 
-  // 4. verify with backend → get JWT
   const { token } = await fetch("http://localhost:3001/auth/verify", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message, signature }),
   }).then((r) => r.json());
 
-  // 5. set session in supabase
   await supabase.auth.setSession({ access_token: token, refresh_token: token });
-
-  // 6. upsert user row
-  await supabase.from("users").upsert({ address });
+  await supabase.from("users").upsert({ address: checksummedAddress });
 
   localStorage.setItem("tb_token", token);
   return token;
